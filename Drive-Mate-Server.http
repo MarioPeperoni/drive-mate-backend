@@ -1,0 +1,6 @@
+@Drive_Mate_Server_HostAddress = http://localhost:5103
+
+GET {{Drive_Mate_Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
