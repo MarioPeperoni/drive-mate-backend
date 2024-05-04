@@ -1,4 +1,24 @@
+using MongoDB.Driver;
+using Drive_Mate_Server.Data;
+
+using Microsoft.EntityFrameworkCore;
+
+using Clerk.Net.DependencyInjection;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+
 var builder = WebApplication.CreateBuilder(args);
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string not found");
+
+var mongoClient = new MongoClient(connectionString);
+var dbContextOptions =
+    new DbContextOptionsBuilder<MyDbContext>().UseMongoDB(mongoClient, "drive-mate");
+var db = new MyDbContext(dbContextOptions.Options);
+
+builder.Services.AddSingleton(db);
+builder.Services.AddMemoryCache();
 
 // Add services to the container.
 
