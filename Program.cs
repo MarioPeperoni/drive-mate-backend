@@ -1,4 +1,3 @@
-using MongoDB.Driver;
 using Drive_Mate_Server.Data;
 
 using Microsoft.EntityFrameworkCore;
@@ -7,17 +6,17 @@ using Clerk.Net.DependencyInjection;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string not found");
 
-var mongoClient = new MongoClient(connectionString);
-var dbContextOptions =
-    new DbContextOptionsBuilder<MyDbContext>().UseMongoDB(mongoClient, "drive-mate");
-var db = new MyDbContext(dbContextOptions.Options);
+builder.Services.AddDbContext<MyDbContext>(options =>
+{
+    options.UseNpgsql(connectionString);
+});
 
-builder.Services.AddSingleton(db);
 builder.Services.AddMemoryCache();
 
 builder.Services.AddCors(options =>
@@ -29,6 +28,9 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader();
     });
 });
+
+builder.Services.AddControllers().AddJsonOptions(x =>
+   x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
 
 
 builder.Services.AddClerkApiClient(config =>

@@ -2,7 +2,6 @@ using Drive_Mate_Server.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Drive_Mate_Server.Data;
-using MongoDB.Bson;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +29,7 @@ namespace Drive_Mate_Server.Controllers
             {
                 if (!_memoryCache.TryGetValue("recentRides", out List<Ride>? rides))
                 {
-                    rides = await _db.Rides.Take(10).ToListAsync();
+                    rides = await _db.Rides.Include(r => r.Driver).OrderByDescending(r => r.CreatedAt).Take(10).ToListAsync();
                     _memoryCache.Set("recentRides", rides, TimeSpan.FromMinutes(5));
                 }
                 return Ok(rides);
@@ -42,17 +41,12 @@ namespace Drive_Mate_Server.Controllers
         }
 
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetRide(string id)
+        public async Task<IActionResult> GetRide(int id)
         {
             try
             {
-                // Convert the string id to an ObjectId
-                if (!ObjectId.TryParse(id, out ObjectId objectId))
-                {
-                    return BadRequest("Invalid ride id");
-                }
 
-                Ride? ride = await _db.Rides.FirstOrDefaultAsync(r => r.Id == objectId);
+                Ride? ride = await _db.Rides.FirstOrDefaultAsync(r => r.Id == id);
                 if (ride == null)
                 {
                     return NotFound();
@@ -65,17 +59,101 @@ namespace Drive_Mate_Server.Controllers
             }
         }
 
+
         [HttpPost]
-        public async Task<IActionResult> CreateRide(Ride ride)
+        [Authorize]
+        public async Task<IActionResult> CreateTestRide()
+        {
+            // Creates a test ride with the current user as the driver
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId == null)
+                {
+                    return BadRequest("User not found");
+                }
+
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.ClerkId == userId);
+                if (user == null)
+                {
+                    return BadRequest("User not found");
+                }
+
+                var ride = new Ride
+                {
+                    From = "Gdynia",
+                    To = "Warszawa",
+                    RideDate = DateTime.Now,
+                    Price = 120,
+                    Driver = user,
+                    Seats = 3,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now
+                };
+
+                await _db.Rides.AddAsync(ride);
+                await _db.SaveChangesAsync();
+
+                return CreatedAtAction(nameof(GetRide), new { id = ride.Id }, ride);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpPut("{id}")]
+        [Authorize]
+        public async Task<IActionResult> AddPassanger(int id)
         {
             try
             {
-                ride.Id = ObjectId.GenerateNewId();
-                ride.CreatedAt = DateTime.UtcNow;
-                ride.UpdatedAt = DateTime.UtcNow;
-                await _db.Rides.AddAsync(ride);
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId == null)
+                {
+                    return BadRequest("User not found");
+                }
+
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.ClerkId == userId);
+                if (user == null)
+                {
+                    return BadRequest("User not found");
+                }
+
+                var ride = await _db.Rides.FirstOrDefaultAsync(r => r.Id == id);
+                if (ride == null)
+                {
+                    return NotFound();
+                }
+
+                var ridePassenger = new Passenger
+                {
+                    UserId = user.Id,
+                    RideId = ride.Id
+                };
+
+                await _db.Passengers.AddAsync(ridePassenger);
                 await _db.SaveChangesAsync();
-                return CreatedAtAction(nameof(GetRide), new { id = ride.Id }, ride);
+
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpGet("{id}/passengers")]
+        public async Task<IActionResult> GetRidePassengers(int id)
+        {
+            try
+            {
+                var ride = await _db.Rides.Include(r => r.Passengers).FirstOrDefaultAsync(r => r.Id == id);
+                if (ride == null)
+                {
+                    return NotFound();
+                }
+                return Ok(ride.Passengers);
             }
             catch (Exception ex)
             {
