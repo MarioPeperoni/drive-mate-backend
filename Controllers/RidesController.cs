@@ -65,7 +65,17 @@ namespace Drive_Mate_Server.Controllers
         {
             try
             {
-                var rides = await _db.Rides.Include(r => r.Driver).Where(r => r.From == from && r.To == to && r.StartDate >= startDate).ToListAsync();
+                // Extracting the date part from startDate
+                DateTime startDateDay = startDate.Date;
+                // Extracting the date part from the next day
+                DateTime nextDay = startDateDay.AddDays(1);
+
+                // Fetching rides where StartDate falls within the specific day
+                var rides = await _db.Rides
+                    .Include(r => r.Driver)
+                    .Where(r => r.From == from && r.To == to && r.StartDate >= startDateDay && r.StartDate < nextDay)
+                    .ToListAsync();
+
                 return Ok(rides);
             }
             catch (Exception ex)
