@@ -59,6 +59,21 @@ namespace Drive_Mate_Server.Controllers
             }
         }
 
+        [HttpGet]
+        [Route("search")]
+        public async Task<IActionResult> SearchRides(string from, string to, DateTime startDate)
+        {
+            try
+            {
+                var rides = await _db.Rides.Include(r => r.Driver).Where(r => r.From == from && r.To == to && r.StartDate >= startDate).ToListAsync();
+                return Ok(rides);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
 
         [HttpPost]
         [Authorize]
