@@ -83,9 +83,11 @@ namespace Drive_Mate_Server.Controllers
                 {
                     From = "Gdynia",
                     To = "Warszawa",
-                    RideDate = DateTime.Now,
+                    StartDate = DateTime.Now,
+                    EndDate = DateTime.Now.AddHours(4),
                     Price = 120,
                     Driver = user,
+                    Car = "Fiat Punto",
                     Seats = 3,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
