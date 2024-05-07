@@ -6,6 +6,7 @@ using Drive_Mate_Server.Data;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using Newtonsoft.Json.Linq;
 
 namespace Drive_Mate_Server.Controllers
 {
@@ -15,11 +16,15 @@ namespace Drive_Mate_Server.Controllers
     {
         private readonly MyDbContext _db;
         private readonly IMemoryCache _memoryCache;
+        private readonly HttpClient _httpClient;
+        private readonly IConfiguration _configuration;
 
-        public RidesController(MyDbContext db, IMemoryCache memoryCache)
+        public RidesController(MyDbContext db, IMemoryCache memoryCache, IHttpClientFactory httpClientFactory, IConfiguration configuration)
         {
             _db = db;
             _memoryCache = memoryCache;
+            _httpClient = httpClientFactory.CreateClient();
+            _configuration = configuration;
         }
 
         [HttpGet]
@@ -116,7 +121,7 @@ namespace Drive_Mate_Server.Controllers
                     To = data.To,
                     UserId = user.Id,
                     StartDate = data.StartDate,
-                    EndDate = data.EndDate,
+                    EndDate = GetDriveTime(data.From, data.To, data.StartDate).Result,
                     Seats = data.Seats,
                     Price = data.Price,
                     Car = data.Car,
@@ -132,6 +137,45 @@ namespace Drive_Mate_Server.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+
+        }
+
+
+        private async Task<DateTime> GetDriveTime(string from, string to, DateTime startDate)
+        {
+            var requestParameters = new
+            {
+                destinations = from,
+                origins = to,
+                units = "metric",
+                key = _configuration["GoogleApi:Key"]
+            };
+
+            var requestUrl = "https://maps.googleapis.com/maps/api/distancematrix/json?" +
+                $"destinations={Uri.EscapeDataString(requestParameters.destinations)}" +
+                $"&origins={Uri.EscapeDataString(requestParameters.origins)}" +
+                $"&units={Uri.EscapeDataString(requestParameters.units)}" +
+                $"&key={Uri.EscapeDataString(requestParameters.key!)}";
+
+            var response = await _httpClient.GetAsync(requestUrl);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+
+                // Parese the JSON response
+                var json = JObject.Parse(content);
+
+                // Extract the duration value from the JSON response
+                int durationValue = (int)json["rows"]![0]!["elements"]![0]!["duration"]!["value"]!;
+
+                // Return time added to the startDate
+                return startDate.AddSeconds(durationValue);
+            }
+            else
+            {
+                return startDate;
             }
         }
 
