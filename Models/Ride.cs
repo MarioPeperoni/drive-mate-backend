@@ -3,11 +3,19 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Drive_Mate_Server.Models
 {
+
+    public enum RideStatus
+    {
+        Active,
+        Completed,
+        Cancelled
+    }
     public class Ride
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
+        public RideStatus Status { get; set; }
 
         public required string From { get; set; }
         public required string To { get; set; }
