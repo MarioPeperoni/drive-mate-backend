@@ -34,4 +34,15 @@ namespace Drive_Mate_Server.Models
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
     }
+
+    public class RideCreationModel
+    {
+        public string From { get; set; }
+        public string To { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public int Seats { get; set; }
+        public decimal Price { get; set; }
+        public string Car { get; set; }
+    }
 }

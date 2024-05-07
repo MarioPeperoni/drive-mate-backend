@@ -87,7 +87,7 @@ namespace Drive_Mate_Server.Controllers
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> CreateTestRide()
+        public async Task<IActionResult> CreateRide(RideCreationModel data)
         {
             // Creates a test ride with the current user as the driver
             try
@@ -106,14 +106,14 @@ namespace Drive_Mate_Server.Controllers
 
                 var ride = new Ride
                 {
-                    From = "Gdynia",
-                    To = "Warszawa",
-                    StartDate = DateTime.Now,
-                    EndDate = DateTime.Now.AddHours(4),
-                    Price = 120,
-                    Driver = user,
-                    Car = "Fiat Punto",
-                    Seats = 3,
+                    From = data.From,
+                    To = data.To,
+                    UserId = user.Id,
+                    StartDate = data.StartDate,
+                    EndDate = data.EndDate,
+                    Seats = data.Seats,
+                    Price = data.Price,
+                    Car = data.Car,
                     CreatedAt = DateTime.Now,
                     UpdatedAt = DateTime.Now
                 };
