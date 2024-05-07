@@ -29,7 +29,12 @@ namespace Drive_Mate_Server.Controllers
             {
                 if (!_memoryCache.TryGetValue("recentRides", out List<Ride>? rides))
                 {
-                    rides = await _db.Rides.Include(r => r.Driver).OrderByDescending(r => r.CreatedAt).Take(10).ToListAsync();
+                    rides = await _db.Rides
+                                .Include(r => r.Driver)
+                                .Include(r => r.Passengers)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(10)
+                                .ToListAsync();
                     _memoryCache.Set("recentRides", rides, TimeSpan.FromMinutes(5));
                 }
                 return Ok(rides);
@@ -73,6 +78,7 @@ namespace Drive_Mate_Server.Controllers
                 // Fetching rides where StartDate falls within the specific day
                 var rides = await _db.Rides
                     .Include(r => r.Driver)
+                    .Include(r => r.Passengers)
                     .Where(r => r.From == from && r.To == to && r.StartDate >= startDateDay && r.StartDate < nextDay)
                     .ToListAsync();
 
