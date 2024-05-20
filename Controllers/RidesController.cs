@@ -35,11 +35,12 @@ namespace Drive_Mate_Server.Controllers
                 if (!_memoryCache.TryGetValue("recentRides", out List<Ride>? rides))
                 {
                     rides = await _db.Rides
-                                .Include(r => r.Driver)
-                                .Include(r => r.Passengers)
-                                .OrderByDescending(r => r.CreatedAt)
-                                .Take(10)
-                                .ToListAsync();
+                        .Include(r => r.Driver)
+                        .Include(r => r.Passengers)
+                        .Where(r => r.Seats - r.Passengers.Count > 0)
+                        .OrderByDescending(r => r.CreatedAt)
+                        .Take(10)
+                        .ToListAsync();
                     _memoryCache.Set("recentRides", rides, TimeSpan.FromMinutes(5));
                 }
                 return Ok(rides);
@@ -50,13 +51,17 @@ namespace Drive_Mate_Server.Controllers
             }
         }
 
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetRide(int id)
         {
             try
             {
+                Ride? ride = await _db.Rides
+                    .Include(r => r.Driver)
+                    .Include(r => r.Passengers).ThenInclude(p => p.User)
+                    .FirstOrDefaultAsync(r => r.Id == id);
 
-                Ride? ride = await _db.Rides.FirstOrDefaultAsync(r => r.Id == id);
                 if (ride == null)
                 {
                     return NotFound();
@@ -181,7 +186,7 @@ namespace Drive_Mate_Server.Controllers
 
         [HttpPut("{id}")]
         [Authorize]
-        public async Task<IActionResult> AddPassanger(int id)
+        public async Task<IActionResult> Reserve(int id)
         {
             try
             {
@@ -190,17 +195,32 @@ namespace Drive_Mate_Server.Controllers
                 {
                     return BadRequest("User not found");
                 }
-
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.ClerkId == userId);
                 if (user == null)
                 {
                     return BadRequest("User not found");
                 }
-
-                var ride = await _db.Rides.FirstOrDefaultAsync(r => r.Id == id);
+                var ride = await _db.Rides
+                    .Include(r => r.Passengers)
+                    .FirstOrDefaultAsync(r => r.Id == id);
                 if (ride == null)
                 {
                     return NotFound();
+                }
+
+                if (ride.UserId == user.Id)
+                {
+                    return BadRequest("You cannot reserve your own ride");
+                }
+
+                if (ride.Passengers.Count >= ride.Seats)
+                {
+                    return BadRequest("No seats available");
+                }
+
+                if (ride.Passengers.Any(p => p.UserId == user.Id))
+                {
+                    return BadRequest("You have already reserved this ride");
                 }
 
                 var ridePassenger = new Passenger
