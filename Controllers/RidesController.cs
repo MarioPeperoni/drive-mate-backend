@@ -2,6 +2,10 @@ using Drive_Mate_Server.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Drive_Mate_Server.Data;
+using SendGrid;
+using SendGrid.Helpers.Mail;
+using System;
+using System.Threading.Tasks;
 
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.AspNetCore.Authorization;
@@ -138,6 +142,11 @@ namespace Drive_Mate_Server.Controllers
                 await _db.Rides.AddAsync(ride);
                 await _db.SaveChangesAsync();
 
+                await SendEmail(user.Email,
+                                $"Your ride to {ride.To} is now listed",
+                                $"You have successfully created a ride from {ride.From} to {ride.To} on {ride.StartDate}. Your ride will be available until {ride.StartDate}. If someone reserves a seat, you will be notified.",
+                                $"<strong>You have successfully created a ride from {ride.From} to {ride.To} on {ride.StartDate}.</strong><br>Your ride will be available until {ride.StartDate}. If someone reserves a seat, you will be notified.");
+
                 return CreatedAtAction(nameof(GetRide), new { id = ride.Id }, ride);
             }
             catch (Exception ex)
@@ -234,6 +243,30 @@ namespace Drive_Mate_Server.Controllers
                     UserId = user.Id,
                     RideId = ride.Id
                 };
+                var driver = await _db.Users.FirstOrDefaultAsync(u => u.Id == ride.UserId);
+                if (driver == null)
+                {
+                    return BadRequest("Driver not found");
+                }
+
+                await SendEmail(
+                    driver.Email,
+                    $"New passenger in your ride to {ride.To}",
+                    $"A new passenger has reserved your ride from {ride.From} to {ride.To} on {ride.StartDate}. {ridePassenger.User.FirstName} {ridePassenger.User.LastName}",
+                    $"<strong>A new passenger has reserved your ride from {ride.From} to {ride.To} on {ride.StartDate}.</strong><br>Passenger: {ridePassenger.User.FirstName} {ridePassenger.User.LastName}");
+
+                // Send an email to the passenger
+                var passenger = await _db.Users.FirstOrDefaultAsync(u => u.Id == ridePassenger.UserId);
+                if (passenger == null)
+                {
+                    return BadRequest("Passenger not found");
+                }
+
+                await SendEmail(
+                    passenger.Email,
+                    $"Your ride to {ride.To} has been reserved",
+                    $"You have successfully reserved a ride from {ride.From} to {ride.To} on {ride.StartDate}. Your driver is {driver.FirstName} {driver.LastName}.",
+                    $"<strong>You have successfully reserved a ride from {ride.From} to {ride.To} on {ride.StartDate}.</strong><br>Your driver is {driver.FirstName} {driver.LastName}.");
 
                 await _db.Passengers.AddAsync(ridePassenger);
                 await _db.SaveChangesAsync();
@@ -293,6 +326,25 @@ namespace Drive_Mate_Server.Controllers
                 }
                 _db.Rides.Remove(ride);
                 await _db.SaveChangesAsync();
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
+        private async Task<IActionResult> SendEmail(string to, string subject, string plainTextContent, string htmlContent)
+        {
+            try
+            {
+                var apiKey = _configuration["SendGrid:ApiKey"];
+                var client = new SendGridClient(apiKey);
+                var from = new EmailAddress("embers.podium_0g@icloud.com", "Drive Mate");
+                var toEmail = new EmailAddress(to);
+                var msg = MailHelper.CreateSingleEmail(from, toEmail, subject, plainTextContent, htmlContent);
+                var response = await client.SendEmailAsync(msg);
+
                 return Ok();
             }
             catch (Exception ex)
