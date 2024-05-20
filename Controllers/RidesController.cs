@@ -40,6 +40,7 @@ namespace Drive_Mate_Server.Controllers
                         .Where(r => r.Seats - r.Passengers.Count > 0)
                         .OrderByDescending(r => r.CreatedAt)
                         .Take(10)
+                        .Where(r => r.StartDate >= DateTime.Now)
                         .ToListAsync();
                     _memoryCache.Set("recentRides", rides, TimeSpan.FromMinutes(5));
                 }
@@ -223,6 +224,11 @@ namespace Drive_Mate_Server.Controllers
                     return BadRequest("You have already reserved this ride");
                 }
 
+                if (ride.StartDate < DateTime.Now)
+                {
+                    return BadRequest("Ride is in the past");
+                }
+
                 var ridePassenger = new Passenger
                 {
                     UserId = user.Id,
@@ -251,6 +257,43 @@ namespace Drive_Mate_Server.Controllers
                     return NotFound();
                 }
                 return Ok(ride.Passengers);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"An error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> DeleteRide(int id)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (userId == null)
+                {
+                    return BadRequest("User not found");
+                }
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.ClerkId == userId);
+                if (user == null)
+                {
+                    return BadRequest("User not found");
+                }
+                var ride = await _db.Rides
+                    .Include(r => r.Passengers)
+                    .FirstOrDefaultAsync(r => r.Id == id);
+                if (ride == null)
+                {
+                    return NotFound();
+                }
+                if (ride.UserId != user.Id)
+                {
+                    return BadRequest("You are not the driver of this ride");
+                }
+                _db.Rides.Remove(ride);
+                await _db.SaveChangesAsync();
+                return Ok();
             }
             catch (Exception ex)
             {
