@@ -252,8 +252,8 @@ namespace Drive_Mate_Server.Controllers
                 await SendEmail(
                     driver.Email,
                     $"New passenger in your ride to {ride.To}",
-                    $"A new passenger has reserved your ride from {ride.From} to {ride.To} on {ride.StartDate}. {ridePassenger.User.FirstName} {ridePassenger.User.LastName}",
-                    $"<strong>A new passenger has reserved your ride from {ride.From} to {ride.To} on {ride.StartDate}.</strong><br>Passenger: {ridePassenger.User.FirstName} {ridePassenger.User.LastName}");
+                    $"A new passenger has reserved your ride from {ride.From} to {ride.To} on {ride.StartDate}. {user.FirstName} {user.LastName}",
+                    $"<strong>A new passenger has reserved your ride from {ride.From} to {ride.To} on {ride.StartDate}.</strong><br>Passenger: {user.FirstName} {user.LastName}");
 
                 // Send an email to the passenger
                 var passenger = await _db.Users.FirstOrDefaultAsync(u => u.Id == ridePassenger.UserId);
@@ -349,6 +349,8 @@ namespace Drive_Mate_Server.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Wyjebałem sie na głupi ryj");
+                Console.WriteLine(ex.Message);
                 return StatusCode(500, $"An error occurred: {ex.Message}");
             }
         }
