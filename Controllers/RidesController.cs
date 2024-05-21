@@ -62,15 +62,19 @@ namespace Drive_Mate_Server.Controllers
         {
             try
             {
-                Ride? ride = await _db.Rides
+                var ride = await _db.Rides
                     .Include(r => r.Driver)
-                    .Include(r => r.Passengers).ThenInclude(p => p.User)
+                        .ThenInclude(u => u.RidesAsDriver
+                            .Where(r => r.StartDate >= DateTime.Now))
+                    .Include(r => r.Passengers)
+                        .ThenInclude(p => p.User)
                     .FirstOrDefaultAsync(r => r.Id == id);
 
                 if (ride == null)
                 {
                     return NotFound();
                 }
+
                 return Ok(ride);
             }
             catch (Exception ex)
