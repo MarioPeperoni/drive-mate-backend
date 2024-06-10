@@ -353,7 +353,6 @@ namespace Drive_Mate_Server.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Wyjebałem sie na głupi ryj");
                 Console.WriteLine(ex.Message);
                 return StatusCode(500, $"An error occurred: {ex.Message}");
             }
